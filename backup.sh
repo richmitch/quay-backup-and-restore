@@ -53,11 +53,11 @@
     echo "Capture backup of the Quay configuration"
     kubectl neat get -- quayregistry $REGISTRY_NAME -n $QUAY_NAMESPACE -o yaml > "/backup/$BACKUP_DIR/quay-registry.yaml"
     kubectl neat get -- secret $REGISTRY_NAME-quay-registry-managed-secret-keys -n $QUAY_NAMESPACE -o yaml > "/backup/$BACKUP_DIR/managed-secret-keys.yaml"
-    kubectl exec -it $APP_POD_NAME -n $QUAY_NAMESPACE -- cat /conf/stack/config.yaml > "/backup/$BACKUP_DIR/quay-config.yaml"
+    kubectl exec -i $APP_POD_NAME -n $QUAY_NAMESPACE -- cat /conf/stack/config.yaml > "/backup/$BACKUP_DIR/quay-config.yaml"
     kubectl neat get -- secret $CONFIG_BUNDLE_SECRET -n $QUAY_NAMESPACE -o yaml > "/backup/$BACKUP_DIR/config-bundle.yaml"
 
     echo "Perform a Quay database backup"
-    kubectl exec -it pod/$DB_POD_NAME -n $QUAY_NAMESPACE -- sh -c ' /usr/bin/pg_dump -C $POSTGRESQL_DATABASE' > "/backup/$BACKUP_DIR/backup.sql"
+    kubectl exec -i pod/$DB_POD_NAME -n $QUAY_NAMESPACE -- sh -c ' /usr/bin/pg_dump -C $POSTGRESQL_DATABASE' > "/backup/$BACKUP_DIR/backup.sql"
 
     if [[ ! -s "/backup/$BACKUP_DIR/backup.sql" ]]; then
       error_exit "Database dump missing or empty at /backup/$BACKUP_DIR/backup.sql" 105

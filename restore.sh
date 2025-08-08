@@ -89,9 +89,9 @@
     if [[ -z "$DB_POD_NAME" ]]; then
       error_exit "Failed to get Postgres pod name in $QUAY_NAMESPACE namespace" 202
     fi
-    kubectl exec -it pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/dropdb --if-exists -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'
-    kubectl exec -it pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/createdb -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'
-    kubectl exec -it pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f /backup/$RESTORE_DIR/backup.sql'
+    kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/dropdb --if-exists -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'
+    kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/createdb -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'
+    kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f /backup/$RESTORE_DIR/backup.sql'
 
     echo "Scaling up Quay"
     kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas="$REPLICAS"
