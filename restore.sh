@@ -32,7 +32,7 @@
     fi
 
     echo "Find most recent backup in Cohesity"
-    MOST_RECENT=$(s3_retry aws s3 ls "s3://$OBJECT_BUCKET" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl | grep PRE | sort -nr | head -n 1 | awk '/PRE/ {print $2}' | sed 's:/$::')
+    MOST_RECENT=$(s3_retry aws s3 ls "s3://$OBJECT_BUCKET/" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl | grep PRE | sort -nr | head -n 1 | awk '/PRE/ {print $2}' | sed 's:/$::')
 
     if [[ -z "$MOST_RECENT" ]]; then
       error_exit "No backups found in S3 bucket $OBJECT_BUCKET" 101
@@ -40,8 +40,8 @@
 
     echo "Most recent backup is $MOST_RECENT"
 
-    echo "Create restore directory"
     RESTORE_DIR="$MOST_RECENT"
+    echo "Create restore directory: $RESTORE_DIR"
     if ! mkdir -p "/backup/$RESTORE_DIR"; then
       error_exit "Failed to create restore directory /backup/$RESTORE_DIR" 102
     fi
@@ -67,7 +67,9 @@
     echo "Scaling down Quay"
     QUAY_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l quay-component=quay -o jsonpath='{.items[0].metadata.name}')
     REPLICAS=$(kubectl get deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].spec.replicas}')
-    kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0
+    if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
+      error_exit "Failed to scale down Quay deployment $QUAY_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
+    fi
 
     restore_replicas() {
       if [[ -n "$REPLICAS" ]]; then
@@ -94,7 +96,11 @@
     kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f /backup/$RESTORE_DIR/backup.sql'
 
     echo "Scaling up Quay"
-    kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas="$REPLICAS"
+    if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas="$REPLICAS"; then
+      error_exit "Failed to scale Quay deployment $QUAY_DEPLOYMENT back to $REPLICAS replicas" 205
+    fi
+     
+    trap - EXIT
 
     echo "Delete local backup copies older than ${RETENTION_PERIOD} days"
     find /backup/* -type d -mtime +"${RETENTION_PERIOD}" -print -exec rm -rf {} +
