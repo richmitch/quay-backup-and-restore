@@ -56,6 +56,7 @@ Codes are grouped by domain: 1xx = S3/Object storage, 2xx = Kubernetes/namespace
 | 203  | restore      | Timed out waiting for Quay pods to terminate after scaling down |
 | 204  | restore      | Failed to scale down Quay deployment |
 | 205  | restore      | Failed to scale Quay deployment back to the original replica count |
+| 206  | restore      | Failed to get Quay deployment name in the target namespace |
 
 Notes:
 - The scripts use `set -o pipefail` and exit non-zero on handled errors via a common `error_exit` helper.

@@ -66,6 +66,9 @@
     # If backup available, scale down Quay
     echo "Scaling down Quay"
     QUAY_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l quay-component=quay -o jsonpath='{.items[0].metadata.name}')
+    if [[ -z "$QUAY_DEPLOYMENT" ]]; then
+      error_exit "Failed to get Quay deployment name in namespace $QUAY_NAMESPACE" 206
+    fi
     REPLICAS=$(kubectl get deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].spec.replicas}')
     if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
       error_exit "Failed to scale down Quay deployment $QUAY_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
