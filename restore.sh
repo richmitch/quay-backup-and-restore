@@ -32,7 +32,7 @@
     fi
 
     echo "Find most recent backup in Cohesity"
-    MOST_RECENT=$(s3_retry aws s3 ls "s3://$OBJECT_BUCKET" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl --only-show-errors | grep PRE | sort -nr | head -n 1 | awk '/PRE/ {print $2}' | sed 's:/$::')
+    MOST_RECENT=$(s3_retry aws s3 ls "s3://$OBJECT_BUCKET" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl | grep PRE | sort -nr | head -n 1 | awk '/PRE/ {print $2}' | sed 's:/$::')
 
     if [[ -z "$MOST_RECENT" ]]; then
       error_exit "No backups found in S3 bucket $OBJECT_BUCKET" 101
@@ -47,12 +47,12 @@
     fi
 
     echo "List bucket contents"
-    if ! s3_retry aws s3 ls "s3://$OBJECT_BUCKET/$MOST_RECENT" --recursive --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl --only-show-errors; then
+    if ! s3_retry aws s3 ls "s3://$OBJECT_BUCKET/$MOST_RECENT" --recursive --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl ; then
       error_exit "Failed to list backup contents at s3://$OBJECT_BUCKET/$MOST_RECENT" 103
     fi
 
     echo "Sync backup files from S3 to restore directory"
-    if ! s3_retry aws s3 sync "s3://$OBJECT_BUCKET/$MOST_RECENT" "/backup/$RESTORE_DIR" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl --only-show-errors; then
+    if ! s3_retry aws s3 sync "s3://$OBJECT_BUCKET/$MOST_RECENT" "/backup/$RESTORE_DIR" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl ; then
       error_exit "S3 sync failure from s3://$OBJECT_BUCKET/$MOST_RECENT to /backup/$RESTORE_DIR" 104
     fi
 
