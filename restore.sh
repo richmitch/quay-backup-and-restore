@@ -205,12 +205,9 @@
       error_exit "Failed to restore database from /backup/$RESTORE_DIR/backup.sql in pod $DB_POD_NAME" 209
     fi
 
-    echo "Scaling Quay back to $QUAY_REPLICAS replicas"
-    if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas="$QUAY_REPLICAS"; then
-      error_exit "Failed to scale Quay deployment $QUAY_DEPLOYMENT back to $QUAY_REPLICAS replicas" 205
-    fi
-     
-    trap - EXIT
+     echo "Restoring Quay deployments to original replica counts"
+     restore_replicas
+     trap - EXIT
 
     echo "Delete local backup copies older than ${RETENTION_PERIOD} days"
     find /backup/* -type d -mtime +"${RETENTION_PERIOD}" -print -exec rm -rf {} +
