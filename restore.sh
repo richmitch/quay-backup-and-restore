@@ -69,28 +69,6 @@
       error_exit "Database dump missing or empty at /backup/$RESTORE_DIR/backup.sql" 105
     fi
 
-    # If backup available, scale down Quay
-    REPLICAS=$(kubectl get deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
-    echo "Scaling Quay down from $REPLICAS replicas"
-    if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
-      error_exit "Failed to scale down Quay deployment $QUAY_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
-    fi
-
-    restore_replicas() {
-      if [[ -n "$REPLICAS" ]]; then
-        echo "Restoring Quay replicas to $REPLICAS"
-        kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas="$REPLICAS" || true
-      fi
-    }
-    trap restore_replicas EXIT
-
-    echo "Waiting for Quay deployment to scale down and pods to terminate"
-    if kubectl get pods -n "$QUAY_NAMESPACE" -l quay-component=quay --no-headers 2>/dev/null | grep -q .; then
-      if ! kubectl wait --for=delete pod -l quay-component=quay -n "$QUAY_NAMESPACE" --timeout=300s; then
-        error_exit "Timed out waiting for Quay pods to terminate after scaling down" 203
-      fi
-    fi
-
     # Extract registryEndpoint from QuayRegistry
     echo "Extracting registry endpoint from QuayRegistry in namespace: $QUAY_NAMESPACE"
     REGISTRY_NAME=$(kubectl get quayregistry -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].metadata.name}')
@@ -103,6 +81,8 @@
       error_exit "Failed to read .status.registryEndpoint from QuayRegistry/$REGISTRY_NAME" 214
     fi
     echo "registryEndpoint: $REGISTRY_ENDPOINT"
+    REGISTRY_ENDPOINT_HOST="${REGISTRY_ENDPOINT#https://}"
+    echo "registryEndpoint host: $REGISTRY_ENDPOINT_HOST"
 
     # Prepare managed-secret-keys patched copy
     SOURCE_KEYS_FILE="/backup/$RESTORE_DIR/managed-secret-keys.yaml"
@@ -112,8 +92,8 @@
     if [[ ! -f "$SOURCE_KEYS_FILE" ]]; then
       error_exit "managed-secret-keys.yaml not found at $SOURCE_KEYS_FILE" 211
     fi
-    # Rewrite quay-registry-hostname annotation to registryEndpoint
-    if ! awk -v newval="$REGISTRY_ENDPOINT" '
+    # Rewrite quay-registry-hostname annotation to registryEndpoint host (no scheme)
+    if ! awk -v newval="$REGISTRY_ENDPOINT_HOST" '
       BEGIN { updated = 0 }
       {
         if ($0 ~ /^[[:space:]]*quay-registry-hostname:/) {
@@ -135,7 +115,27 @@
       error_exit "Failed to update quay-registry-hostname in $PATCHED_KEYS_FILE" 217
     fi
 
+    # If backup available, scale down Quay
+    REPLICAS=$(kubectl get deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
+    echo "Scaling Quay down from $REPLICAS replicas"
+    if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
+      error_exit "Failed to scale down Quay deployment $QUAY_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
+    fi
 
+    restore_replicas() {
+      if [[ -n "$REPLICAS" ]]; then
+        echo "Restoring Quay replicas to $REPLICAS"
+        kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas="$REPLICAS" || true
+      fi
+    }
+    trap restore_replicas EXIT
+
+    echo "Waiting for Quay deployment to scale down and pods to terminate"
+    if kubectl get pods -n "$QUAY_NAMESPACE" -l quay-component=quay --no-headers 2>/dev/null | grep -q .; then
+      if ! kubectl wait --for=delete pod -l quay-component=quay -n "$QUAY_NAMESPACE" --timeout=300s; then
+        error_exit "Timed out waiting for Quay pods to terminate after scaling down" 203
+      fi
+    fi
 
     echo "Perform a clean Quay database restore"
     DB_POD_NAME=$(kubectl get pod -l quay-component=postgres -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].metadata.name}')
