@@ -21,9 +21,15 @@
       done
     }
 
-    echo "Checking namespace: $QUAY_NAMESPACE"
+    echo "Checking the Quay namespace provided is correct: $QUAY_NAMESPACE"
     if ! kubectl get namespace "$QUAY_NAMESPACE" >/dev/null 2>&1; then
       error_exit "Namespace $QUAY_NAMESPACE does not exist or is not accessible" 200
+    fi
+
+   echo "Checking access to Quay CRs"
+    QUAY_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l quay-component=quay -o jsonpath='{.items[0].metadata.name}')
+    if [[ -z "$QUAY_DEPLOYMENT" ]]; then
+      error_exit "Failed to get Quay deployment name in namespace $QUAY_NAMESPACE" 206
     fi
 
     echo "Checking S3 connectivity"
@@ -65,10 +71,6 @@
 
     # If backup available, scale down Quay
     echo "Scaling down Quay"
-    QUAY_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l quay-component=quay -o jsonpath='{.items[0].metadata.name}')
-    if [[ -z "$QUAY_DEPLOYMENT" ]]; then
-      error_exit "Failed to get Quay deployment name in namespace $QUAY_NAMESPACE" 206
-    fi
     REPLICAS=$(kubectl get deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].spec.replicas}')
     if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
       error_exit "Failed to scale down Quay deployment $QUAY_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
