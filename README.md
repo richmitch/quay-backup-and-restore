@@ -60,6 +60,9 @@ Codes are grouped by domain: 1xx = S3/Object storage, 2xx = Kubernetes/namespace
 | 207  | restore      | Failed to drop database in the Postgres pod |
 | 208  | restore      | Failed to create database in the Postgres pod |
 | 209  | restore      | Failed to restore database from backup.sql in the Postgres pod |
+| 210  | restore      | Failed to extract quay-registry-hostname from managed-secret-keys.yaml |
+| 211  | restore      | managed-secret-keys.yaml not found in local backup directory |
+| 212  | restore      | Failed to derive source cluster from quay-registry-hostname |
 
 Notes:
 - The scripts use `set -o pipefail` and exit non-zero on handled errors via a common `error_exit` helper.

@@ -96,11 +96,15 @@
     if [[ ! -f "/backup/$RESTORE_DIR/managed-secret-keys.yaml" ]]; then
       error_exit "managed-secret-keys.yaml not found in /backup/$RESTORE_DIR" 211
     fi
-    SOURCE_CLUSTER=$(awk -F': *' '/quay-registry-hostname:/ {print $2; exit}' "/backup/$RESTORE_DIR/managed-secret-keys.yaml" | tr -d '"' | xargs)
-    if [[ -z "$SOURCE_CLUSTER" ]]; then
+    QUAY_REGISTRY_HOSTNAME=$(awk -F': *' '/quay-registry-hostname:/ {print $2; exit}' "/backup/$RESTORE_DIR/managed-secret-keys.yaml" | tr -d '"' | xargs)
+    if [[ -z "$QUAY_REGISTRY_HOSTNAME" ]]; then
       error_exit "Failed to extract quay-registry-hostname from managed-secret-keys.yaml" 210
     fi
-    echo "Source cluster: $SOURCE_CLUSTER"
+    SOURCE_CLUSTER=$(printf "%s" "$QUAY_REGISTRY_HOSTNAME" | sed -n 's/.*apps\.\([^.]*\)\.vodafone.*/\1/p')
+    if [[ -z "$SOURCE_CLUSTER" ]]; then
+      error_exit "Failed to derive source cluster from hostname '$QUAY_REGISTRY_HOSTNAME'" 212
+    fi
+    echo "Source cluster: $SOURCE_CLUSTER (from $QUAY_REGISTRY_HOSTNAME)"
 
     # Patch the cluster name in the backup files
     echo "Patching cluster name in backup files"
