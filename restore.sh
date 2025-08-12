@@ -31,6 +31,22 @@
     if [[ -z "$QUAY_DEPLOYMENT" ]]; then
       error_exit "Failed to get Quay deployment name in namespace $QUAY_NAMESPACE" 206
     fi
+    CLAIR_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l quay-component=clair-app -o jsonpath='{.items[0].metadata.name}')
+    if [[ -z "$CLAIR_DEPLOYMENT" ]]; then
+      error_exit "Failed to get Clair deployment name in namespace $QUAY_NAMESPACE" 218
+    fi
+    MIRROR_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l quay-component=quay-mirror -o jsonpath='{.items[0].metadata.name}')
+    if [[ -z "$MIRROR_DEPLOYMENT" ]]; then
+      error_exit "Failed to get Quay mirror deployment name in namespace $QUAY_NAMESPACE" 219
+    fi
+    OPERATOR_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l olm.managed=true -o jsonpath='{.items[0].metadata.name}')
+    if [[ -z "$OPERATOR_DEPLOYMENT" ]]; then
+      error_exit "Failed to get Operator deployment name in namespace $QUAY_NAMESPACE" 220
+    fi
+    echo "Quay deployment: $QUAY_DEPLOYMENT"
+    echo "Clair deployment: $CLAIR_DEPLOYMENT"
+    echo "Mirror deployment: $MIRROR_DEPLOYMENT"
+    echo "Operator deployment: $OPERATOR_DEPLOYMENT"
 
     echo "Checking S3 connectivity"
     if ! s3_retry aws s3 ls "s3://$OBJECT_BUCKET" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl >/dev/null 2>&1; then
