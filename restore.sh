@@ -91,25 +91,51 @@
       fi
     fi
 
-    # Extract source cluster from backup
-    echo "Extracting source cluster from managed-secret-keys.yaml"
-    if [[ ! -f "/backup/$RESTORE_DIR/managed-secret-keys.yaml" ]]; then
-      error_exit "managed-secret-keys.yaml not found in /backup/$RESTORE_DIR" 211
+    # Extract registryEndpoint from QuayRegistry
+    echo "Extracting registry endpoint from QuayRegistry in namespace: $QUAY_NAMESPACE"
+    REGISTRY_NAME=$(kubectl get quayregistry -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].metadata.name}')
+    if [[ -z "$REGISTRY_NAME" ]]; then
+      error_exit "Failed to find a QuayRegistry in namespace $QUAY_NAMESPACE" 213
     fi
-    QUAY_REGISTRY_HOSTNAME=$(awk -F': *' '/quay-registry-hostname:/ {print $2; exit}' "/backup/$RESTORE_DIR/managed-secret-keys.yaml" | tr -d '"' | xargs)
-    if [[ -z "$QUAY_REGISTRY_HOSTNAME" ]]; then
-      error_exit "Failed to extract quay-registry-hostname from managed-secret-keys.yaml" 210
+    echo "QuayRegistry name: $REGISTRY_NAME"
+    REGISTRY_ENDPOINT=$(kubectl get quayregistry "$REGISTRY_NAME" -n "$QUAY_NAMESPACE" -o jsonpath='{.status.registryEndpoint}')
+    if [[ -z "$REGISTRY_ENDPOINT" ]]; then
+      error_exit "Failed to read .status.registryEndpoint from QuayRegistry/$REGISTRY_NAME" 214
     fi
-    SOURCE_CLUSTER=$(printf "%s" "$QUAY_REGISTRY_HOSTNAME" | sed -n 's/.*apps\.\([^.]*\)\.vodafone.*/\1/p')
-    if [[ -z "$SOURCE_CLUSTER" ]]; then
-      error_exit "Failed to derive source cluster from hostname '$QUAY_REGISTRY_HOSTNAME'" 212
+    echo "registryEndpoint: $REGISTRY_ENDPOINT"
+
+    # Prepare managed-secret-keys patched copy
+    SOURCE_KEYS_FILE="/backup/$RESTORE_DIR/managed-secret-keys.yaml"
+    PATCHED_KEYS_FILE="/backup/$RESTORE_DIR/managed-secret-keys.patched.yaml"
+    echo "Managed keys source: $SOURCE_KEYS_FILE"
+    echo "Managed keys patched copy: $PATCHED_KEYS_FILE"
+    if [[ ! -f "$SOURCE_KEYS_FILE" ]]; then
+      error_exit "managed-secret-keys.yaml not found at $SOURCE_KEYS_FILE" 211
     fi
-    echo "Source cluster: $SOURCE_CLUSTER (from $QUAY_REGISTRY_HOSTNAME)"
-    
-    # Patch the cluster name in the backup files
-    echo "Patching cluster name in backup files"
-    sed -i 's/ocpadm001vm002400/ocpaadm001vm002400/' "/backup/$RESTORE_DIR/managed-secret-keys.yaml"
-    
+    # Rewrite quay-registry-hostname annotation to registryEndpoint
+    if ! awk -v newval="$REGISTRY_ENDPOINT" '
+      BEGIN { updated = 0 }
+      {
+        if ($0 ~ /^[[:space:]]*quay-registry-hostname:/) {
+          # preserve leading indentation
+          match($0, /[^[:space:]]/);
+          indent = substr($0, 1, RSTART-1);
+          print indent "quay-registry-hostname: " newval;
+          updated = 1;
+          next;
+        }
+        print $0;
+      }
+      END { if (!updated) exit 42 }
+    ' "$SOURCE_KEYS_FILE" > "$PATCHED_KEYS_FILE"; then
+      error_exit "Failed to write patched managed-secret-keys to $PATCHED_KEYS_FILE" 216
+    fi
+    # Verify update happened
+    if ! grep -q "quay-registry-hostname: .*" "$PATCHED_KEYS_FILE"; then
+      error_exit "Failed to update quay-registry-hostname in $PATCHED_KEYS_FILE" 217
+    fi
+
+
 
     echo "Perform a clean Quay database restore"
     DB_POD_NAME=$(kubectl get pod -l quay-component=postgres -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].metadata.name}')

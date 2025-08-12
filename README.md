@@ -63,6 +63,10 @@ Codes are grouped by domain: 1xx = S3/Object storage, 2xx = Kubernetes/namespace
 | 210  | restore      | Failed to extract quay-registry-hostname from managed-secret-keys.yaml |
 | 211  | restore      | managed-secret-keys.yaml not found in local backup directory |
 | 212  | restore      | Failed to derive source cluster from quay-registry-hostname |
+| 213  | restore      | Failed to find QuayRegistry in namespace |
+| 214  | restore      | Failed to read .status.registryEndpoint from QuayRegistry |
+| 216  | restore      | Failed to write patched managed-secret-keys copy |
+| 217  | restore      | Failed to update quay-registry-hostname in patched copy |
 
 Notes:
 - The scripts use `set -o pipefail` and exit non-zero on handled errors via a common `error_exit` helper.
