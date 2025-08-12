@@ -105,10 +105,11 @@
       error_exit "Failed to derive source cluster from hostname '$QUAY_REGISTRY_HOSTNAME'" 212
     fi
     echo "Source cluster: $SOURCE_CLUSTER (from $QUAY_REGISTRY_HOSTNAME)"
-
+    
     # Patch the cluster name in the backup files
     echo "Patching cluster name in backup files"
     sed -i 's/ocpadm001vm002400/ocpaadm001vm002400/' "/backup/$RESTORE_DIR/managed-secret-keys.yaml"
+    
 
     echo "Perform a clean Quay database restore"
     DB_POD_NAME=$(kubectl get pod -l quay-component=postgres -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].metadata.name}')
