@@ -179,7 +179,11 @@
       if [[ -n "$OPERATOR_REPLICAS" ]]; then
         echo "-- Restoring Quay operator replicas to $OPERATOR_REPLICAS"
         kubectl scale deployment "$OPERATOR_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas="$OPERATOR_REPLICAS" || true
-      fi             
+      fi
+       echo "-- Waiting for Quay registry to become available"
+       if ! kubectl wait --for=condition=Available=True quayregistry "$REGISTRY_NAME" -n "$QUAY_NAMESPACE" --timeout=300s; then
+         error_exit "Timed out waiting for QuayRegistry/$REGISTRY_NAME to become available in namespace $QUAY_NAMESPACE" 221
+       fi
     }
     trap restore_replicas EXIT
 
@@ -205,9 +209,9 @@
       error_exit "Failed to restore database from /backup/$RESTORE_DIR/backup.sql in pod $DB_POD_NAME" 209
     fi
 
-     echo "Restoring Quay deployments to original replica counts"
-     restore_replicas
-     trap - EXIT
+    echo "Restoring Quay deployments to original replica counts..."
+    restore_replicas
+    trap - EXIT
 
     echo "Delete local backup copies older than ${RETENTION_PERIOD} days"
     find /backup/* -type d -mtime +"${RETENTION_PERIOD}" -print -exec rm -rf {} +
