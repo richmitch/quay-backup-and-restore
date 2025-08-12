@@ -65,6 +65,7 @@ Codes are grouped by domain: 1xx = S3/Object storage, 2xx = Kubernetes/namespace
 | 212  | restore      | Failed to derive source cluster from quay-registry-hostname |
 | 213  | restore      | Failed to find QuayRegistry in namespace |
 | 214  | restore      | Failed to read .status.registryEndpoint from QuayRegistry |
+| 215  | restore      | Failed to apply patched managed-secret-keys |
 | 216  | restore      | Failed to write patched managed-secret-keys copy |
 | 217  | restore      | Failed to update quay-registry-hostname in patched copy |
 | 218  | restore      | Failed to get Clair deployment name in the target namespace |

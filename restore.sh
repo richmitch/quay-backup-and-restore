@@ -27,7 +27,7 @@
       error_exit "Namespace $QUAY_NAMESPACE does not exist or is not accessible" 200
     fi
 
-    echo "-- Quay CRs..."
+    echo "-- Quay Deployments..."
     QUAY_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l quay-component=quay -o jsonpath='{.items[0].metadata.name}')
     if [[ -z "$QUAY_DEPLOYMENT" ]]; then
       error_exit "Failed to get Quay deployment name in namespace $QUAY_NAMESPACE" 206
@@ -135,9 +135,15 @@
       error_exit "Failed to update quay-registry-hostname in $PATCHED_KEYS_FILE" 217
     fi
 
+    # Restore the Quay config
+    echo "Restore the Quay config"
+    echo "-- Restore managed-secret-keys"
+    if ! kubectl apply -f "$PATCHED_KEYS_FILE" -n "$QUAY_NAMESPACE"; then
+      error_exit "Failed to apply patched managed-secret-keys from $PATCHED_KEYS_FILE in namespace $QUAY_NAMESPACE" 215
+    fi
+
     # If backup available, scale down Quay
     echo "Scale down Quay deployments..."
-    
     OPERATOR_REPLICAS=$(kubectl get deployment "$OPERATOR_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
     echo "-- Scaling Quay operator down from $OPERATOR_REPLICAS replicas"
     if ! kubectl scale deployment "$OPERATOR_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
@@ -182,7 +188,7 @@
       fi
        echo "-- Waiting for Quay registry to become available"
        if ! kubectl wait --for=condition=Available=True quayregistry "$REGISTRY_NAME" -n "$QUAY_NAMESPACE" --timeout=300s; then
-         error_exit "Timed out waiting for QuayRegistry/$REGISTRY_NAME to become available in namespace $QUAY_NAMESPACE" 221
+         error_exit "Timed out waiting for QuayRegistry/$REGISTRY_NAME to become available" 221
        fi
     }
     trap restore_replicas EXIT
@@ -209,7 +215,6 @@
       error_exit "Failed to restore database from /backup/$RESTORE_DIR/backup.sql in pod $DB_POD_NAME" 209
     fi
 
-    echo "Restoring Quay deployments to original replica counts..."
     restore_replicas
     trap - EXIT
 
