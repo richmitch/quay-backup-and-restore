@@ -57,6 +57,9 @@ Codes are grouped by domain: 1xx = S3/Object storage, 2xx = Kubernetes/namespace
 | 204  | restore      | Failed to scale down Quay deployment |
 | 205  | restore      | Failed to scale Quay deployment back to the original replica count |
 | 206  | restore      | Failed to get Quay deployment name in the target namespace |
+| 207  | restore      | Failed to drop database in the Postgres pod |
+| 208  | restore      | Failed to create database in the Postgres pod |
+| 209  | restore      | Failed to restore database from backup.sql in the Postgres pod |
 
 Notes:
 - The scripts use `set -o pipefail` and exit non-zero on handled errors via a common `error_exit` helper.

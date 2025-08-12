@@ -70,8 +70,8 @@
     fi
 
     # If backup available, scale down Quay
-    echo "Scaling down Quay"
-    REPLICAS=$(kubectl get deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].spec.replicas}')
+    REPLICAS=$(kubectl get deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
+    echo "Scaling Quay down from $REPLICAS replicas"
     if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
       error_exit "Failed to scale down Quay deployment $QUAY_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
     fi
@@ -96,11 +96,17 @@
     if [[ -z "$DB_POD_NAME" ]]; then
       error_exit "Failed to get Postgres pod name in $QUAY_NAMESPACE namespace" 202
     fi
-    kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/dropdb --if-exists -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'
-    kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/createdb -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'
-    kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f /backup/$RESTORE_DIR/backup.sql'
+    if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/dropdb --if-exists -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'; then
+      error_exit "Failed to drop database $POSTGRESQL_DATABASE in pod $DB_POD_NAME" 207
+    fi
+    if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/createdb -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'; then
+      error_exit "Failed to create database $POSTGRESQL_DATABASE in pod $DB_POD_NAME" 208
+    fi
+    if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f /backup/$RESTORE_DIR/backup.sql'; then
+      error_exit "Failed to restore database from /backup/$RESTORE_DIR/backup.sql in pod $DB_POD_NAME" 209
+    fi
 
-    echo "Scaling up Quay"
+    echo "Scaling Quay back to $REPLICAS replicas"
     if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas="$REPLICAS"; then
       error_exit "Failed to scale Quay deployment $QUAY_DEPLOYMENT back to $REPLICAS replicas" 205
     fi
