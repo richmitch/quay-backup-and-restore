@@ -72,6 +72,7 @@ Codes are grouped by domain: 1xx = S3/Object storage, 2xx = Kubernetes/namespace
 | 219  | restore      | Failed to get Quay mirror deployment name in the target namespace |
 | 220  | restore      | Failed to get Operator deployment name in the target namespace |
 | 221  | restore      | Timed out waiting for QuayRegistry to become Available |
+| 222  | restore      | Failed to copy backup.sql into the Postgres pod |
 
 Notes:
 - The scripts use `set -o pipefail` and exit non-zero on handled errors via a common `error_exit` helper.

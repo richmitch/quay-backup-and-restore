@@ -44,10 +44,16 @@
     if [[ -z "$OPERATOR_DEPLOYMENT" ]]; then
       error_exit "Failed to get Operator deployment name in namespace $QUAY_NAMESPACE" 220
     fi
-    echo "Quay deployment: $QUAY_DEPLOYMENT"
-    echo "Clair deployment: $CLAIR_DEPLOYMENT"
-    echo "Mirror deployment: $MIRROR_DEPLOYMENT"
-    echo "Operator deployment: $OPERATOR_DEPLOYMENT"
+
+    QUAY_REPLICAS=$(kubectl get deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
+    CLAIR_REPLICAS=$(kubectl get deployment "$CLAIR_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
+    MIRROR_REPLICAS=$(kubectl get deployment "$MIRROR_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
+    OPERATOR_REPLICAS=$(kubectl get deployment "$OPERATOR_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
+
+    echo "-- Quay deployment: $QUAY_DEPLOYMENT ($QUAY_REPLICAS replicas)"
+    echo "-- Clair deployment: $CLAIR_DEPLOYMENT ($CLAIR_REPLICAS replicas)"
+    echo "-- Mirror deployment: $MIRROR_DEPLOYMENT ($MIRROR_REPLICAS replicas)"
+    echo "-- Operator deployment: $OPERATOR_DEPLOYMENT ($OPERATOR_REPLICAS replicas)"
 
     echo "Checking S3 connectivity"
     if ! s3_retry aws s3 ls "s3://$OBJECT_BUCKET" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl >/dev/null 2>&1; then
@@ -144,25 +150,18 @@
 
     # If backup available, scale down Quay
     echo "Scale down Quay deployments..."
-    OPERATOR_REPLICAS=$(kubectl get deployment "$OPERATOR_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
     echo "-- Scaling Quay operator down from $OPERATOR_REPLICAS replicas"
     if ! kubectl scale deployment "$OPERATOR_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
       error_exit "Failed to scale down Quay operator deployment $OPERATOR_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
     fi
-
-    QUAY_REPLICAS=$(kubectl get deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
     echo "-- Scaling Quay app down from $QUAY_REPLICAS replicas"
     if ! kubectl scale deployment "$QUAY_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
       error_exit "Failed to scale down Quay deployment $QUAY_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
     fi
-
-    CLAIR_REPLICAS=$(kubectl get deployment "$CLAIR_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
     echo "-- Scaling Clair app down from $CLAIR_REPLICAS replicas"
     if ! kubectl scale deployment "$CLAIR_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
       error_exit "Failed to scale down Clair deployment $CLAIR_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
     fi
-
-    MIRROR_REPLICAS=$(kubectl get deployment "$MIRROR_DEPLOYMENT" -n "$QUAY_NAMESPACE" -o jsonpath='{.spec.replicas}')
     echo "-- Scaling Quay mirror down from $MIRROR_REPLICAS replicas"
     if ! kubectl scale deployment "$MIRROR_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
       error_exit "Failed to scale down Quay mirror deployment $MIRROR_DEPLOYMENT in namespace $QUAY_NAMESPACE" 204
@@ -205,12 +204,18 @@
     if [[ -z "$DB_POD_NAME" ]]; then
       error_exit "Failed to get Postgres pod name in $QUAY_NAMESPACE namespace" 202
     fi
+    echo "-- Drop the database if it exists"
     if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/dropdb --if-exists -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'; then
       error_exit "Failed to drop database $POSTGRESQL_DATABASE in pod $DB_POD_NAME" 207
     fi
-    if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/createdb -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'; then
-      error_exit "Failed to create database $POSTGRESQL_DATABASE in pod $DB_POD_NAME" 208
+    #if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/createdb -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'; then
+    #  error_exit "Failed to create database $POSTGRESQL_DATABASE in pod $DB_POD_NAME" 208
+    #fi
+    echo "-- Copy the backup.sql file to the database pod"
+    if ! kubectl cp "/backup/$RESTORE_DIR/backup.sql" "$DB_POD_NAME:/backup/$RESTORE_DIR/backup.sql" -n "$QUAY_NAMESPACE"; then
+      error_exit "Failed to copy backup.sql to pod $DB_POD_NAME in namespace $QUAY_NAMESPACE" 222
     fi
+    echo "-- Restore the database"
     if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f /backup/$RESTORE_DIR/backup.sql'; then
       error_exit "Failed to restore database from /backup/$RESTORE_DIR/backup.sql in pod $DB_POD_NAME" 209
     fi
