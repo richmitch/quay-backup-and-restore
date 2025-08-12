@@ -26,7 +26,7 @@
       error_exit "Namespace $QUAY_NAMESPACE does not exist or is not accessible" 200
     fi
 
-   echo "Checking access to Quay CRs"
+    echo "Checking access to Quay CRs"
     QUAY_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l quay-component=quay -o jsonpath='{.items[0].metadata.name}')
     if [[ -z "$QUAY_DEPLOYMENT" ]]; then
       error_exit "Failed to get Quay deployment name in namespace $QUAY_NAMESPACE" 206
@@ -90,6 +90,21 @@
         error_exit "Timed out waiting for Quay pods to terminate after scaling down" 203
       fi
     fi
+
+    # Extract source cluster from backup
+    echo "Extracting source cluster from managed-secret-keys.yaml"
+    if [[ ! -f "/backup/$RESTORE_DIR/managed-secret-keys.yaml" ]]; then
+      error_exit "managed-secret-keys.yaml not found in /backup/$RESTORE_DIR" 211
+    fi
+    SOURCE_CLUSTER=$(awk -F': *' '/quay-registry-hostname:/ {print $2; exit}' "/backup/$RESTORE_DIR/managed-secret-keys.yaml" | tr -d '"' | xargs)
+    if [[ -z "$SOURCE_CLUSTER" ]]; then
+      error_exit "Failed to extract quay-registry-hostname from managed-secret-keys.yaml" 210
+    fi
+    echo "Source cluster: $SOURCE_CLUSTER"
+
+    # Patch the cluster name in the backup files
+    echo "Patching cluster name in backup files"
+    sed -i 's/ocpadm001vm002400/ocpaadm001vm002400/' "/backup/$RESTORE_DIR/managed-secret-keys.yaml"
 
     echo "Perform a clean Quay database restore"
     DB_POD_NAME=$(kubectl get pod -l quay-component=postgres -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].metadata.name}')
