@@ -7,6 +7,10 @@
       exit "${2:-1}"
     }
 
+    # Error code groups:
+    # 1xx: S3 and local filesystem
+    # 2xx: Kubernetes namespace/pods
+
     s3_retry() {
       local attempt=1
       local max_attempts=3
@@ -21,11 +25,13 @@
       done
     }
 
+    # 2xx: Namespace check
     echo "Checking namespace: $QUAY_NAMESPACE"
     if ! kubectl get namespace "$QUAY_NAMESPACE" >/dev/null 2>&1; then
       error_exit "Namespace $QUAY_NAMESPACE does not exist or is not accessible" 200
     fi
 
+    # 1xx: S3 connectivity
     echo "Checking S3 connectivity"
     if ! s3_retry aws s3 ls "s3://$OBJECT_BUCKET" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl >/dev/null 2>&1; then
       error_exit "Unable to connect to S3 (bucket: $OBJECT_BUCKET, endpoint: $S3_ENDPOINT). Verify endpoint, credentials, and network." 100
@@ -38,6 +44,7 @@
       error_exit "Failed to create backup directory /backup/$BACKUP_DIR" 102
     fi    
 
+    # 2xx: Resource discovery
     echo "Extract resource details"
     REGISTRY_NAME=$(kubectl get quayregistry -n $QUAY_NAMESPACE -o jsonpath='{.items[0].metadata.name}')
     CONFIG_BUNDLE_SECRET=$(kubectl get quayregistry $REGISTRY_NAME -n $QUAY_NAMESPACE -o jsonpath='{.spec.configBundleSecret}')
@@ -56,6 +63,7 @@
     kubectl exec -i $APP_POD_NAME -n $QUAY_NAMESPACE -- cat /conf/stack/config.yaml > "/backup/$BACKUP_DIR/quay-config.yaml"
     kubectl neat get -- secret $CONFIG_BUNDLE_SECRET -n $QUAY_NAMESPACE -o yaml > "/backup/$BACKUP_DIR/config-bundle.yaml"
 
+    # 2xx + 1xx: DB dump to local filesystem
     echo "Perform a Quay database backup"
     kubectl exec -i pod/$DB_POD_NAME -n $QUAY_NAMESPACE -- sh -c ' /usr/bin/pg_dump -C $POSTGRESQL_DATABASE' > "/backup/$BACKUP_DIR/backup.sql"
 
@@ -66,6 +74,7 @@
     echo "List backup files"
     ls -l /backup/$BACKUP_DIR/.
     
+    # 1xx: S3 upload and verification
     echo "Sync backup files to S3 bucket"
     if ! s3_retry aws s3 sync "/backup/$BACKUP_DIR/." "s3://$OBJECT_BUCKET/$BACKUP_DIR" --endpoint-url "https://$S3_ENDPOINT" --expires "$(date -I -d '7 days')" --no-verify-ssl; then
       error_exit "S3 sync failure from /backup/$BACKUP_DIR to s3://$OBJECT_BUCKET/$BACKUP_DIR" 104

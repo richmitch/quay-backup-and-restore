@@ -21,6 +21,7 @@
       done
     }
 
+    # 2xx: Kubernetes namespace and deployments
     echo "Checking the Quay installation..."
     echo "-- Namespace: $QUAY_NAMESPACE"
     if ! kubectl get namespace "$QUAY_NAMESPACE" >/dev/null 2>&1; then
@@ -54,6 +55,7 @@
     echo "-- Mirror deployment: $MIRROR_DEPLOYMENT ($MIRROR_REPLICAS replicas)"
     echo "-- Operator deployment: $OPERATOR_DEPLOYMENT ($OPERATOR_REPLICAS replicas)"
 
+    # 1xx: S3 connectivity and sync
     echo "Checking S3 connectivity"
     if ! s3_retry aws s3 ls "s3://$OBJECT_BUCKET" --endpoint-url "https://$S3_ENDPOINT" --no-verify-ssl >/dev/null 2>&1; then
       error_exit "Unable to connect to S3 (bucket: $OBJECT_BUCKET, endpoint: $S3_ENDPOINT). Verify endpoint, credentials, and network." 100
@@ -92,6 +94,7 @@
       error_exit "Database dump missing or empty at /backup/$RESTORE_DIR/backup.sql" 105
     fi
 
+    # 2xx: Quay CRs, config patch/apply
     echo "Prepare the restore..."
     # Extract registryEndpoint from QuayRegistry
     echo "-- Extracting registry endpoint from QuayRegistry"
@@ -146,6 +149,7 @@
     fi
 
     # If backup available, scale down Quay
+    # 2xx: Deployments and scaling
     echo "Scale down Quay deployments..."
     echo "-- Scaling Quay operator down from $OPERATOR_REPLICAS replicas"
     if ! kubectl scale deployment "$OPERATOR_DEPLOYMENT" -n "$QUAY_NAMESPACE" --replicas=0; then
@@ -196,6 +200,7 @@
       fi
     fi
 
+    # 2xx: Database restore
     echo "Perform a clean Quay database restore"
     DB_POD_NAME=$(kubectl get pod -l quay-component=postgres -n "$QUAY_NAMESPACE" -o jsonpath='{.items[0].metadata.name}')
     if [[ -z "$DB_POD_NAME" ]]; then
