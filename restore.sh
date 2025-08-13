@@ -27,7 +27,6 @@
       error_exit "Namespace $QUAY_NAMESPACE does not exist or is not accessible" 200
     fi
 
-    echo "-- Quay Deployments..."
     QUAY_DEPLOYMENT=$(kubectl get deployment -n "$QUAY_NAMESPACE" -l quay-component=quay -o jsonpath='{.items[0].metadata.name}')
     if [[ -z "$QUAY_DEPLOYMENT" ]]; then
       error_exit "Failed to get Quay deployment name in namespace $QUAY_NAMESPACE" 206
@@ -112,8 +111,6 @@
     # Prepare managed-secret-keys patched copy
     SOURCE_KEYS_FILE="/backup/$RESTORE_DIR/managed-secret-keys.yaml"
     PATCHED_KEYS_FILE="/backup/$RESTORE_DIR/managed-secret-keys.patched.yaml"
-    echo "-- Managed keys source: $SOURCE_KEYS_FILE"
-    echo "-- Managed keys patched copy: $PATCHED_KEYS_FILE"
     if [[ ! -f "$SOURCE_KEYS_FILE" ]]; then
       error_exit "managed-secret-keys.yaml not found at $SOURCE_KEYS_FILE" 211
     fi
@@ -208,15 +205,12 @@
     if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/dropdb --if-exists -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'; then
       error_exit "Failed to drop database $POSTGRESQL_DATABASE in pod $DB_POD_NAME" 207
     fi
-    #if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/createdb -U $POSTGRESQL_USER $POSTGRESQL_DATABASE'; then
-    #  error_exit "Failed to create database $POSTGRESQL_DATABASE in pod $DB_POD_NAME" 208
-    #fi
     echo "-- Copy the backup.sql file to the database pod"
-    if ! kubectl cp "/backup/$RESTORE_DIR/backup.sql" "$DB_POD_NAME:/backup/$RESTORE_DIR/backup.sql" -n "$QUAY_NAMESPACE"; then
+    if ! kubectl cp "/backup/$RESTORE_DIR/backup.sql" "$DB_POD_NAME:/tmp/backup.sql" -n "$QUAY_NAMESPACE"; then
       error_exit "Failed to copy backup.sql to pod $DB_POD_NAME in namespace $QUAY_NAMESPACE" 222
     fi
     echo "-- Restore the database"
-    if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f /backup/$RESTORE_DIR/backup.sql'; then
+    if ! kubectl exec -i pod/"$DB_POD_NAME" -n "$QUAY_NAMESPACE" -- sh -c '/usr/bin/psql -f /tmp/backup.sql'; then
       error_exit "Failed to restore database from /backup/$RESTORE_DIR/backup.sql in pod $DB_POD_NAME" 209
     fi
 

@@ -1,0 +1,159 @@
+apiVersion: quay.redhat.com/v1
+kind: QuayRegistry
+metadata:
+  creationTimestamp: '2025-07-30T00:03:08Z'
+  finalizers:
+    - quay-operator/finalizer
+  generation: 1
+  managedFields:
+    - apiVersion: quay.redhat.com/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:spec':
+          .: {}
+          'f:components': {}
+          'f:configBundleSecret': {}
+      manager: config-policy-controller
+      operation: Update
+      time: '2025-07-30T00:03:08Z'
+    - apiVersion: quay.redhat.com/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:metadata':
+          'f:finalizers':
+            .: {}
+            'v:"quay-operator/finalizer"': {}
+      manager: manager
+      operation: Update
+      time: '2025-08-11T04:13:27Z'
+    - apiVersion: quay.redhat.com/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:status':
+          .: {}
+          'f:conditions': {}
+          'f:currentVersion': {}
+          'f:lastUpdated': {}
+          'f:registryEndpoint': {}
+      manager: manager
+      operation: Update
+      subresource: status
+      time: '2025-08-12T01:26:59Z'
+  name: registry
+  namespace: quay
+  resourceVersion: '446475337'
+  uid: 8770b486-a03a-4f85-bb4a-8066e56054c6
+spec:
+  components:
+    - kind: clairpostgres
+      managed: true
+    - kind: horizontalpodautoscaler
+      managed: true
+    - kind: mirror
+      managed: true
+    - kind: monitoring
+      managed: true
+    - kind: objectstorage
+      managed: false
+    - kind: postgres
+      managed: true
+    - kind: redis
+      managed: true
+    - kind: route
+      managed: true
+    - kind: tls
+      managed: true
+    - kind: quay
+      managed: true
+    - kind: clair
+      managed: true
+      overrides:
+        volumeSize: 300Gi
+  configBundleSecret: init-config-bundle-secret
+status:
+  conditions:
+    - lastTransitionTime: '2025-08-11T04:12:15Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: Horizontal pod autoscaler found
+      reason: ComponentReady
+      status: 'True'
+      type: ComponentHPAReady
+    - lastTransitionTime: '2025-08-11T14:29:45Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: Route admitted
+      reason: ComponentReady
+      status: 'True'
+      type: ComponentRouteReady
+    - lastTransitionTime: '2025-08-11T04:12:15Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: ServiceMonitor and PrometheusRules created
+      reason: ComponentReady
+      status: 'True'
+      type: ComponentMonitoringReady
+    - lastTransitionTime: '2025-08-11T04:13:55Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: Deployment registry-quay-database healthy
+      reason: ComponentReady
+      status: 'True'
+      type: ComponentPostgresReady
+    - lastTransitionTime: '2025-07-30T00:03:08Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: Object storage not managed by the operator
+      reason: ComponentNotManaged
+      status: 'True'
+      type: ComponentObjectStorageReady
+    - lastTransitionTime: '2025-08-11T22:35:36Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: Clair component healthy
+      reason: ComponentReady
+      status: 'True'
+      type: ComponentClairReady
+    - lastTransitionTime: '2025-08-11T04:16:55Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: ClairPostgres component healthy
+      reason: ComponentReady
+      status: 'True'
+      type: ComponentClairPostgresReady
+    - lastTransitionTime: '2025-08-11T04:12:15Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: Using cluster wildcard certs
+      reason: ComponentReady
+      status: 'True'
+      type: ComponentTLSReady
+    - lastTransitionTime: '2025-08-11T04:12:55Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: Deployment registry-quay-redis healthy
+      reason: ComponentReady
+      status: 'True'
+      type: ComponentRedisReady
+    - lastTransitionTime: '2025-08-11T05:37:25Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: Deployment registry-quay-app has zero replicas available
+      reason: ComponentNotReady
+      status: 'False'
+      type: ComponentQuayReady
+    - message: Awaiting for component quay to become available
+      reason: ComponentNotReady
+      status: 'False'
+      type: ComponentMirrorReady
+    - lastTransitionTime: '2025-08-11T05:37:25Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: Some components are not ready
+      reason: ComponentNotReady
+      status: 'False'
+      type: Available
+    - lastTransitionTime: '2025-08-11T04:13:15Z'
+      lastUpdateTime: '2025-08-11T04:13:15Z'
+      message: All registry components created
+      reason: ComponentsCreationSuccess
+      status: 'True'
+      type: ComponentsCreated
+    - lastTransitionTime: '2025-08-12T01:26:59Z'
+      lastUpdateTime: '2025-08-12T01:26:59Z'
+      message: All objects created/updated successfully
+      reason: ComponentsCreationSuccess
+      status: 'False'
+      type: RolloutBlocked
+  currentVersion: v3.12.11
+  lastUpdated: '2025-08-12 01:26:59.239069151 +0000 UTC'
+  registryEndpoint: 'https://model-registry.apps.ocpaadm001vm002400.vodafone.com.au'
