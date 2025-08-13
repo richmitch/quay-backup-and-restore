@@ -66,6 +66,7 @@ Codes are grouped by domain: 1xx = S3/object storage; 2xx = Kubernetes/cluster.
 
 | Code | Script(s) | Meaning |
 |------|-----------|---------|
+| 201  | backup | Failed to get Quay app pod name in the target namespace |
 | 206  | restore | Failed to get Quay deployment name in the target namespace |
 | 218  | restore | Failed to get Clair deployment name in the target namespace |
 | 219  | restore | Failed to get Quay mirror deployment name in the target namespace |
