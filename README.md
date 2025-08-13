@@ -40,39 +40,56 @@ Run: `bash restore.sh`
 
 ### Error codes
 
-Codes are grouped by domain: 1xx = S3/Object storage, 2xx = Kubernetes/namespace/pods.
+Codes are grouped by domain: 1xx = S3/object storage; 2xx = Kubernetes/cluster.
 
-| Code | Script(s)   | Meaning |
-|------|-------------|---------|
+#### S3 and local filesystem (1xx)
+
+| Code | Script(s) | Meaning |
+|------|-----------|---------|
 | 100  | backup, restore | Unable to connect to S3 (check endpoint, credentials, and network) |
-| 101  | restore      | No backups found in S3 bucket |
+| 101  | restore | No backups found in S3 bucket |
 | 102  | backup, restore | Failed to create local backup/restore directory |
 | 103  | backup, restore | Failed to list backup contents on S3 |
 | 104  | backup, restore | S3 sync failure |
 | 105  | backup, restore | Database dump `backup.sql` missing or empty in local backup directory |
+
+#### Kubernetes: namespace and CRs (2xx)
+
+| Code | Script(s) | Meaning |
+|------|-----------|---------|
 | 200  | backup, restore | Namespace `$QUAY_NAMESPACE` does not exist or is not accessible |
-| 201  | backup       | Failed to get Quay app pod name in the target namespace |
+| 213  | restore | Failed to find QuayRegistry in namespace |
+| 214  | restore | Failed to read `.status.registryEndpoint` from QuayRegistry |
+| 221  | restore | Timed out waiting for QuayRegistry to become Available |
+
+#### Kubernetes: deployments and scaling (2xx)
+
+| Code | Script(s) | Meaning |
+|------|-----------|---------|
+| 206  | restore | Failed to get Quay deployment name in the target namespace |
+| 218  | restore | Failed to get Clair deployment name in the target namespace |
+| 219  | restore | Failed to get Quay mirror deployment name in the target namespace |
+| 220  | restore | Failed to get Operator deployment name in the target namespace |
+| 203  | restore | Timed out waiting for Quay pods to terminate after scaling down |
+| 204  | restore | Failed to scale down one or more Quay deployments |
+
+#### Kubernetes: config patch/apply (2xx)
+
+| Code | Script(s) | Meaning |
+|------|-----------|---------|
+| 211  | restore | `managed-secret-keys.yaml` not found in local backup directory |
+| 216  | restore | Failed to write patched `managed-secret-keys` copy |
+| 217  | restore | Failed to update `quay-registry-hostname` in patched copy |
+| 215  | restore | Failed to apply patched `managed-secret-keys` |
+
+#### Kubernetes: database restore (2xx)
+
+| Code | Script(s) | Meaning |
+|------|-----------|---------|
 | 202  | backup, restore | Failed to get Postgres pod name in the target namespace |
-| 203  | restore      | Timed out waiting for Quay pods to terminate after scaling down |
-| 204  | restore      | Failed to scale down Quay deployment |
-| 205  | restore      | Failed to scale Quay deployment back to the original replica count |
-| 206  | restore      | Failed to get Quay deployment name in the target namespace |
-| 207  | restore      | Failed to drop database in the Postgres pod |
-| 208  | restore      | Failed to create database in the Postgres pod |
-| 209  | restore      | Failed to restore database from backup.sql in the Postgres pod |
-| 210  | restore      | Failed to extract quay-registry-hostname from managed-secret-keys.yaml |
-| 211  | restore      | managed-secret-keys.yaml not found in local backup directory |
-| 212  | restore      | Failed to derive source cluster from quay-registry-hostname |
-| 213  | restore      | Failed to find QuayRegistry in namespace |
-| 214  | restore      | Failed to read .status.registryEndpoint from QuayRegistry |
-| 215  | restore      | Failed to apply patched managed-secret-keys |
-| 216  | restore      | Failed to write patched managed-secret-keys copy |
-| 217  | restore      | Failed to update quay-registry-hostname in patched copy |
-| 218  | restore      | Failed to get Clair deployment name in the target namespace |
-| 219  | restore      | Failed to get Quay mirror deployment name in the target namespace |
-| 220  | restore      | Failed to get Operator deployment name in the target namespace |
-| 221  | restore      | Timed out waiting for QuayRegistry to become Available |
-| 222  | restore      | Failed to copy backup.sql into the Postgres pod |
+| 207  | restore | Failed to drop database in the Postgres pod |
+| 222  | restore | Failed to copy `backup.sql` into the Postgres pod |
+| 209  | restore | Failed to restore database from `backup.sql` in the Postgres pod |
 
 Notes:
 - The scripts use `set -o pipefail` and exit non-zero on handled errors via a common `error_exit` helper.
